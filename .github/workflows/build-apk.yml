@@ -1,0 +1,58 @@
+name: Build APK
+
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Zip kholo aur project dhundo
+        run: |
+          mkdir -p app_src
+          for z in *.zip; do unzip -q -o "$z" -d app_src; done
+          P=$(dirname "$(find app_src -name pubspec.yaml | head -1)")
+          echo "Project folder: $P"
+          echo "PROJECT_DIR=$P" >> "$GITHUB_ENV"
+
+      - name: Android project banao aur permission lagao
+        run: |
+          flutter create --platforms=android --project-name mcq_quiz "$RUNNER_TEMP/scaffold"
+          cp -r "$RUNNER_TEMP/scaffold/android" "$PROJECT_DIR/android"
+          F="$PROJECT_DIR/android/app/src/main/AndroidManifest.xml"
+          grep -q 'android.permission.INTERNET' "$F" || \
+            sed -i 's#<application#<uses-permission android:name="android.permission.INTERNET"/>\n    <application#' "$F"
+
+      - name: APK banao
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          flutter pub get
+          flutter build apk --release
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mcq-quiz-apk
+          path: ${{ env.PROJECT_DIR }}/build/app/outputs/flutter-apk/app-release.apk
+
+      - name: Release page par APK lagao
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: Latest APK
+          files: ${{ env.PROJECT_DIR }}/build/app/outputs/flutter-apk/app-release.apk
