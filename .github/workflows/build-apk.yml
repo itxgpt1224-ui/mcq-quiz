@@ -56,20 +56,33 @@ jobs:
           }
           EOF
 
-      - name: APK banao
+      - name: APK banao (release arm64 aur debug)
         working-directory: ${{ env.PROJECT_DIR }}
         run: |
           flutter pub get
-          flutter build apk --release
+          flutter build apk --release --split-per-abi --target-platform android-arm64
+          flutter build apk --debug --target-platform android-arm64
+
+      - name: APK ki signing check
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          BT=$(ls -d "$ANDROID_SDK_ROOT"/build-tools/* | sort -V | tail -1)
+          ls -l build/app/outputs/flutter-apk/
+          "$BT/apksigner" verify --verbose build/app/outputs/flutter-apk/app-arm64-v8a-release.apk || true
+          "$BT/aapt2" dump badging build/app/outputs/flutter-apk/app-arm64-v8a-release.apk | head -15 || true
 
       - uses: actions/upload-artifact@v4
         with:
           name: mcq-quiz-apk
-          path: ${{ env.PROJECT_DIR }}/build/app/outputs/flutter-apk/app-release.apk
+          path: |
+            ${{ env.PROJECT_DIR }}/build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
+            ${{ env.PROJECT_DIR }}/build/app/outputs/flutter-apk/app-debug.apk
 
       - name: Release page par APK lagao
         uses: softprops/action-gh-release@v2
         with:
           tag_name: latest
           name: Latest APK
-          files: ${{ env.PROJECT_DIR }}/build/app/outputs/flutter-apk/app-release.apk
+          files: |
+            ${{ env.PROJECT_DIR }}/build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
+            ${{ env.PROJECT_DIR }}/build/app/outputs/flutter-apk/app-debug.apk
